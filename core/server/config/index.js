@@ -5,6 +5,7 @@
 
 var path          = require('path'),
     Promise       = require('bluebird'),
+    crypto        = require('crypto'),
     fs            = require('fs'),
     url           = require('url'),
     _             = require('lodash'),
@@ -13,6 +14,7 @@ var path          = require('path'),
     requireTree   = require('../require-tree').readAll,
     errors        = require('../errors'),
     configUrl     = require('./url'),
+    packageInfo   = require('../../../package.json'),
     appRoot       = path.resolve(__dirname, '../../../'),
     corePath      = path.resolve(appRoot, 'core/'),
     testingEnvs   = ['testing', 'testing-mysql', 'testing-pg'],
@@ -70,7 +72,8 @@ ConfigManager.prototype.init = function (rawConfig) {
 ConfigManager.prototype.set = function (config) {
     var localPath = '',
         contentPath,
-        subdir;
+        subdir,
+        assetHash;
 
     // Merge passed in config object onto our existing config object.
     // We're using merge here as it doesn't assign `undefined` properties
@@ -98,6 +101,9 @@ ConfigManager.prototype.set = function (config) {
     // Otherwise default to default content path location
     contentPath = this._config.paths.contentPath || path.resolve(appRoot, 'content');
 
+    assetHash = this._config.assetHash ||
+        (crypto.createHash('md5').update(packageInfo.version + Date.now()).digest('hex')).substring(0, 10);
+
     if (!knexInstance && this._config.database && this._config.database.client) {
         knexInstance = knex(this._config.database);
     }
@@ -106,6 +112,7 @@ ConfigManager.prototype.set = function (config) {
         database: {
             knex: knexInstance
         },
+        ghostVersion: packageInfo.version,
         paths: {
             appRoot:          appRoot,
             subdir:           subdir,
@@ -123,7 +130,6 @@ ConfigManager.prototype.set = function (config) {
             helperTemplates:  path.join(corePath, '/server/helpers/tpl/'),
             exportPath:       path.join(corePath, '/server/data/export/'),
             lang:             path.join(corePath, '/shared/lang/'),
-            debugPath:        subdir + '/ghost/debug/',
 
             availableThemes:  this._config.paths.availableThemes || {},
             availableApps:    this._config.paths.availableApps || {},
@@ -139,12 +145,20 @@ ConfigManager.prototype.set = function (config) {
             // protected slugs cannot be changed or removed
             reserved: ['admin', 'app', 'apps', 'archive', 'archives', 'categories', 'category', 'dashboard', 'feed', 'ghost-admin', 'login', 'logout', 'page', 'pages', 'post', 'posts', 'public', 'register', 'setup', 'signin', 'signout', 'signup', 'tag', 'tags', 'user', 'users', 'wp-admin', 'wp-login'],
             protected: ['ghost', 'rss']
-        }
+        },
+        uploads: {
+            // Used by the upload API to limit uploads to images
+            extensions: ['.jpg', '.jpeg', '.gif', '.png', '.svg', '.svgz'],
+            contentTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml']
+        },
+        deprecatedItems: ['updateCheck', 'mail.fromaddress'],
+        // create a hash for cache busting assets
+        assetHash: assetHash
     });
 
     // Also pass config object to
     // configUrl object to maintain
-    // clean depedency tree
+    // clean dependency tree
     configUrl.setConfig(this._config);
 
     // For now we're going to copy the current state of this._config
@@ -319,18 +333,30 @@ ConfigManager.prototype.isPrivacyDisabled = function (privacyFlag) {
  * Check if any of the currently set config items are deprecated, and issues a warning.
  */
 ConfigManager.prototype.checkDeprecated = function () {
-    var deprecatedItems = ['updateCheck'],
-        self = this;
-
-    _.each(deprecatedItems, function (item) {
-        if (self.hasOwnProperty(item)) {
-            var errorText = 'The configuration property [' + item.toString().bold + '] has been deprecated.',
-                explinationText =  'This will be removed in a future version, please update your config.js file.',
-                helpText = 'Please check http://support.ghost.org/config for the most up-to-date example.';
-
-            errors.logWarn(errorText, explinationText, helpText);
-        }
+    var self = this;
+    _.each(this.deprecatedItems, function (property) {
+        self.displayDeprecated(self, property.split('.'), []);
     });
+};
+
+ConfigManager.prototype.displayDeprecated = function (item, properties, address) {
+    var self = this,
+        property = properties.shift(),
+        errorText,
+        explanationText,
+        helpText;
+
+    address.push(property);
+
+    if (item.hasOwnProperty(property)) {
+        if (properties.length) {
+            return self.displayDeprecated(item[property], properties, address);
+        }
+        errorText = 'The configuration property [' + address.join('.').bold + '] has been deprecated.';
+        explanationText =  'This will be removed in a future version, please update your config.js file.';
+        helpText = 'Please check http://support.ghost.org/config for the most up-to-date example.';
+        errors.logWarn(errorText, explanationText, helpText);
+    }
 };
 
 if (testingEnvs.indexOf(process.env.NODE_ENV) > -1) {

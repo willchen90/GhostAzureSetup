@@ -32,7 +32,6 @@ function setConfig(config) {
 function createUrl(urlPath, absolute, secure) {
     urlPath = urlPath || '/';
     absolute = absolute || false;
-
     var output = '', baseUrl;
 
     // create base of url, always ends without a slash
@@ -61,8 +60,9 @@ function urlPathForPost(post, permalinks) {
             year:   function () { return moment(post.published_at).format('YYYY'); },
             month:  function () { return moment(post.published_at).format('MM'); },
             day:    function () { return moment(post.published_at).format('DD'); },
-            slug: function () { return post.slug; },
-            id: function () { return post.id; }
+            author: function () { return post.author.slug; },
+            slug:   function () { return post.slug; },
+            id:     function () { return post.id; }
         };
 
     if (post.page) {
@@ -101,8 +101,8 @@ function urlPathForPost(post, permalinks) {
 // This is probably not the right place for this, but it's the best place for now
 function urlFor(context, data, absolute) {
     var urlPath = '/',
-        secure,
-        knownObjects = ['post', 'tag', 'author'],
+        secure, imagePathRe,
+        knownObjects = ['post', 'tag', 'author', 'image'], baseUrl,
 
     // this will become really big
     knownPaths = {
@@ -133,6 +133,24 @@ function urlFor(context, data, absolute) {
         } else if (context === 'author' && data.author) {
             urlPath = '/author/' + data.author.slug + '/';
             secure = data.author.secure;
+        } else if (context === 'image' && data.image) {
+            urlPath = data.image;
+            imagePathRe = new RegExp('^' + ghostConfig.paths.subdir + '/' + ghostConfig.paths.imagesRelPath);
+            absolute = imagePathRe.test(data.image) ? absolute : false;
+            secure = data.image.secure;
+
+            if (absolute) {
+                // Remove the sub-directory from the URL because ghostConfig will add it back.
+                urlPath = urlPath.replace(new RegExp('^' + ghostConfig.paths.subdir), '');
+                baseUrl = (secure && ghostConfig.urlSSL) ? ghostConfig.urlSSL : ghostConfig.url;
+                baseUrl = baseUrl.replace(/\/$/, '');
+                urlPath = baseUrl + urlPath;
+            }
+
+            return urlPath;
+        } else if (context === 'sitemap-xsl') {
+            absolute = true;
+            urlPath = '/sitemap.xsl';
         }
         // other objects are recognised but not yet supported
     } else if (_.isString(context) && _.indexOf(_.keys(knownPaths), context) !== -1) {

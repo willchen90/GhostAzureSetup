@@ -4,16 +4,16 @@ var _                          = require('lodash'),
     path                       = require('path'),
     Promise                    = require('bluebird'),
     hbs                        = require('express-hbs'),
-    NotFoundError              = require('./notfounderror'),
-    BadRequestError            = require('./badrequesterror'),
-    InternalServerError        = require('./internalservererror'),
-    NoPermissionError          = require('./nopermissionerror'),
-    RequestEntityTooLargeError = require('./requesttoolargeerror'),
-    UnauthorizedError          = require('./unauthorizederror'),
-    ValidationError            = require('./validationerror'),
-    UnsupportedMediaTypeError  = require('./unsupportedmediaerror'),
-    EmailError                 = require('./emailerror'),
-    DataImportError            = require('./dataimporterror'),
+    NotFoundError              = require('./not-found-error'),
+    BadRequestError            = require('./bad-request-error'),
+    InternalServerError        = require('./internal-server-error'),
+    NoPermissionError          = require('./no-permission-error'),
+    RequestEntityTooLargeError = require('./request-too-large-error'),
+    UnauthorizedError          = require('./unauthorized-error'),
+    ValidationError            = require('./validation-error'),
+    UnsupportedMediaTypeError  = require('./unsupported-media-type-error'),
+    EmailError                 = require('./email-error'),
+    DataImportError            = require('./data-import-error'),
     config,
     errors,
 
@@ -24,7 +24,7 @@ var _                          = require('lodash'),
 colors.setTheme({silly: 'rainbow'});
 
 // Shim right now to deal with circular dependencies.
-// @TODO: remove circular dependency
+// @TODO(hswolff): remove circular dependency and lazy require.
 function getConfigModule() {
     if (!config) {
         config = require('../config');
@@ -73,6 +73,7 @@ errors = {
         if ((process.env.NODE_ENV === 'development' ||
             process.env.NODE_ENV === 'staging' ||
             process.env.NODE_ENV === 'production')) {
+            warn = warn || 'no message supplied';
             var msgs = ['\nWarning:'.yellow, warn.yellow, '\n'];
 
             if (context) {
@@ -106,7 +107,13 @@ errors = {
 
         stack = err ? err.stack : null;
 
-        err = _.isString(err) ? err : (_.isObject(err) ? err.message : 'An unknown error occurred.');
+        if (!_.isString(err)) {
+            if (_.isObject(err) && _.isString(err.message)) {
+                err = err.message;
+            } else {
+                err = 'An unknown error occurred.';
+            }
+        }
 
         // Overwrite error to provide information that this is probably a permission problem
         // TODO: https://github.com/TryGhost/Ghost/issues/3687
