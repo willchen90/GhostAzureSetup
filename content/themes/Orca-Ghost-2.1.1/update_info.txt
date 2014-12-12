@@ -1,0 +1,9 @@
+UPDATING FROM 1.0 TO 2.0
+
+Requires Ghost 0.5.2 or later. Please ensure you're running this version or higher before updating your theme files.
+
+Post title images no longer use a markdown image element, and instead use the newly integrated 'Post Image' setting. This can be found in your post settings section. Each post will need to be updated using the new setting, any post using the old markup method will stop working. For improved performance it is recommended you delete the old markdown image code.
+
+More information on the new 'Post Image' setting is provided in the documentation.
+
+If you have any issues with the above, or updating from version 1.0 please contact support. (support@ecko.me)
