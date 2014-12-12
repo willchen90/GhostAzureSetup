@@ -1,7 +1,7 @@
 // # Ghost Configuration
 // Setup your Ghost install for various environments
 // Documentation can be found at http://support.ghost.org/config/
- 
+
 var path = require('path'),
     config;
 
@@ -11,7 +11,16 @@ config = {
     // Configure your URL and mail settings here
     production: {
         url: 'http://willchen.me/',
-        mail: {},
+        mail: {
+          transport: 'SMTP',
+          options: {
+            service: 'Mailgun',
+            auth: {
+              user: 'postmaster@willchen.me', // mailgun username
+              pass: 'c572884a0ec5ba4575aa6ae29930375f'  // mailgun password
+            }
+          }
+        },
         database: {
             client: 'sqlite3',
             connection: {
